@@ -10,11 +10,11 @@ import datetime as dt
 URL_POPULATION = "https://restcountries.eu/rest/v2/name/{}"
 URL_COVID = "https://corona.lmao.ninja/v2/historical/{}"
 
-
+# funkcja wykladnicza
 def func(x, a, b, c):
     return a*np.exp(b*x)+c
 
-
+# funkcja sluzaca do pobrania danych z API
 def load_json(country: str, url: str):
     request = requests.get(url.format(country))
     if request.status_code != 200:
@@ -22,20 +22,13 @@ def load_json(country: str, url: str):
         sys.exit()
     return request.json()
 
-
+# funkcja sluzaca do pobrania liczby ludzi w danym kraju
 def get_population(country):
     data = load_json(country, URL_POPULATION)
     return data[0]["population"]
 
 
-def get_cases_on_date(country, date):
-    population = get_population(country)
-    # print(population)
-    data = load_json(country, URL_COVID)
-    data = data["timeline"]["cases"][date]
-    return data, data/population*1e6
-
-
+# pobranie danych oraz wrzucenie ich w dataframea
 def get_data(country):
     data = load_json(country, URL_COVID)
     population = get_population(country)
@@ -58,7 +51,7 @@ def get_data(country):
     #df = df[df["y_abs"] > 0]
     return df
 
-
+# get_xticks - funkcje pomocnicze do stworzenia ladniejszej osi OX 
 def get_xticks(dates):
     return dates.apply(lambda x: x.strftime("%d/%m"))
 
@@ -72,29 +65,22 @@ def get_xticks_v2(dates):
             new_dates.append(date.strftime(" "))
     return new_dates
 
-
+# funkcja sluzaca do dopasowywania wspolczynnikow do danych
 def find_coeffs(x, y):
     xd = curve_fit(func, x, y, p0=(1, 0.1, 1))
     return xd[0][0], xd[0][1], xd[0][2]
 
-
-def test_func(dates, delta):
+# funkcja zwracajca przyszle daty, uzywana do tworzenia dataframea
+def get_dates_predict(dates, delta):
     dates_future = dates
     for i in range(1, delta):
         to_add = dates.tail(1)+dt.timedelta(i)
         to_add.index += i
         dates_future = pd.concat([dates_future, to_add])
-        # print(dates.tail(1)+dt.timedelta(i))
     return dates_future
 
 
-def predict_data(x, y, delta):
-    x_predict = range(x[0], x[len(x)-1]+delta)
-    A, B, C = find_coeffs(x, y)
-    print(A, B, C)
-    return x_predict, func(x_predict, A, B, C)
-
-
+# funkcja ktora zwraca data framea z przewidywanymi wartosciami dla danego kraju
 def get_data_predict(df, delta, country):
     population = get_population(country)
     x = df.index
@@ -109,7 +95,7 @@ def get_data_predict(df, delta, country):
     for x in y_abs_predict:
         y_predict.append(x/population*1e6)
     df_predict = pd.DataFrame({
-        "ds": test_func(df["ds"], delta),
+        "ds": get_dates_predict(df["ds"], delta),
         "y": y_predict,
         "y_abs": y_abs_predict
     })
@@ -119,34 +105,8 @@ def get_data_predict(df, delta, country):
 if __name__ == '__main__':
     delta = 7
     today = (dt.datetime.today()-dt.timedelta(1)).strftime("%#m/%#d/%y")
-    country = "poland"
-    df_poland = get_data(country)
-    df_poland_predict = get_data_predict(df_poland, delta, country)
-    print(df_poland_predict)
-    plt.figure(0)
-    plt.plot(df_poland.index, df_poland["y"],
-             color="orange", label="number of cases")
-    # plt.plot(df_poland.index, df_poland["y"],
-    #         color="blue", label="measured", linestyle=":")
-    plt.xticks(df_poland.index, get_xticks(
-        df_poland["ds"]), rotation="vertical")
-    plt.title("Koronawirus w Polsce")
-    # plt.axvline(df_poland[df_poland["ds"] ==
-    #                      "24/3/2020"].index, color="red", label="xd")
-    plt.legend(loc="upper left")
 
-    print(get_cases_on_date(country, today))
-    print(today)
-
-    plt.figure(1)
-    country2 = "usa"
-    df_china = get_data(country2)
-    plt.plot(df_china["ds"], df_china["y"],
-             color="orange", label="number of cases")
-    plt.xticks(rotation="45")
-    plt.legend(loc="upper left")
-    plt.title("Coronavirus in China")
-
+    # wykresy do omowienia wloch
     country3 = "italy"
     df_italy = get_data(country3)
     df_italy_predict = get_data_predict(df_italy, delta, country3)
@@ -162,6 +122,7 @@ if __name__ == '__main__':
                 color="red", label="lockdown date")
     plt.legend(loc="upper left")
 
+    # drugi wykres (przewidywania)
     plt.figure(3)
     plt.plot(df_italy_predict.index,
              df_italy_predict["y_abs"], color="orange", label="number of cases")
@@ -174,6 +135,7 @@ if __name__ == '__main__':
                 color="red", label="lockdown date")
     plt.legend(loc="upper left")
 
+    # wykresy do omowienia usa
     country4 = "usa"
     df_usa = get_data(country4)
     df_usa_predict = get_data_predict(df_usa, delta, country4)
@@ -184,6 +146,7 @@ if __name__ == '__main__':
     plt.title("Number of cases of Coronavirus in USA")
     plt.legend(loc="upper left")
 
+    # drugi wykres (przewidywania)
     plt.figure(5)
     plt.plot(df_usa_predict.index,
              df_usa_predict["y_abs"], color="orange", label="number of cases")
@@ -194,6 +157,7 @@ if __name__ == '__main__':
                                == today].index, color="yellow", label="today")
     plt.legend(loc="upper left")
 
+    # wykresy do porownania dalekiej przyszlosci (pokazanie przeciecia sie)
     df_italy_far = get_data_predict(df_italy, 14, "italy")
     df_usa_far = get_data_predict(df_usa, 14, "usa")
     plt.figure(7)
@@ -208,8 +172,7 @@ if __name__ == '__main__':
     plt.legend(loc="upper left")
     plt.title("Predicted number of COVID-19 cases in further future")
 
-    # fig, axes = plt.subplots(nrows=2, ncols=1)
-    # plt.sca(axes[0]) # real cases
+    # porownanie dotychczasowej sytuacji
     plt.figure(8)
     plt.title("Recorded number of COVID-19 cases")
     plt.xticks(df_usa.index, get_xticks_v2(df_usa["ds"]), rotation="vertical")
@@ -217,7 +180,8 @@ if __name__ == '__main__':
     plt.plot(df_italy.index, df_italy["y"],
              color="c", label="No of cases in Italy")
     plt.legend(loc="upper left")
-    # plt.sca(axes[1]) # predicted cases
+
+    # porownanie przewidywan
     plt.figure(9)
     plt.title("Predicted number of COVID-19 cases")
     plt.xticks(df_usa_predict.index, get_xticks_v2(
