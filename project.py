@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from scipy.optimize import curve_fit
 import datetime as dt
 
@@ -54,12 +55,22 @@ def get_data(country):
         "y": y,
         "y_abs": y_abs
     })
-    df = df[df["y_abs"] > 0]
+    #df = df[df["y_abs"] > 0]
     return df
 
 
 def get_xticks(dates):
     return dates.apply(lambda x: x.strftime("%d/%m"))
+
+
+def get_xticks_v2(dates):
+    new_dates = []
+    for i, date in enumerate(dates):
+        if(i % 7 == 0):
+            new_dates.append(date.strftime("%d/%m"))
+        else:
+            new_dates.append(date.strftime(" "))
+    return new_dates
 
 
 def find_coeffs(x, y):
@@ -80,7 +91,7 @@ def test_func(dates, delta):
 def predict_data(x, y, delta):
     x_predict = range(x[0], x[len(x)-1]+delta)
     A, B, C = find_coeffs(x, y)
-    #print(A, B, C)
+    print(A, B, C)
     return x_predict, func(x_predict, A, B, C)
 
 
@@ -92,6 +103,7 @@ def get_data_predict(df, delta, country):
     x_predict = range(x[0], x[len(x)-1]+delta)
     #A, B, C = find_coeffs(x, y)
     A2, B2, C2 = find_coeffs(x, y_abs)
+    print("{}: A={}, B={}, C={}".format(country, A2, B2, C2))
     y_predict = []
     y_abs_predict = func(x_predict, A2, B2, C2)
     for x in y_abs_predict:
@@ -105,14 +117,14 @@ def get_data_predict(df, delta, country):
 
 
 if __name__ == '__main__':
-    today = (dt.datetime.today()-dt.timedelta(2)).strftime("%#m/%#d/%y")
+    delta = 7
+    today = (dt.datetime.today()-dt.timedelta(1)).strftime("%#m/%#d/%y")
     country = "poland"
     df_poland = get_data(country)
-    delta = 7
     df_poland_predict = get_data_predict(df_poland, delta, country)
     print(df_poland_predict)
     plt.figure(0)
-    plt.plot(df_poland.index, df_poland["y_abs"],
+    plt.plot(df_poland.index, df_poland["y"],
              color="orange", label="number of cases")
     # plt.plot(df_poland.index, df_poland["y"],
     #         color="blue", label="measured", linestyle=":")
@@ -127,9 +139,9 @@ if __name__ == '__main__':
     print(today)
 
     plt.figure(1)
-    country2 = "china"
+    country2 = "usa"
     df_china = get_data(country2)
-    plt.plot(df_china["ds"], df_china["y_abs"],
+    plt.plot(df_china["ds"], df_china["y"],
              color="orange", label="number of cases")
     plt.xticks(rotation="45")
     plt.legend(loc="upper left")
@@ -138,26 +150,84 @@ if __name__ == '__main__':
     country3 = "italy"
     df_italy = get_data(country3)
     df_italy_predict = get_data_predict(df_italy, delta, country3)
+    plt.figure(2)
+    lockdown_italy = "2020-03-09"
+    plt.plot(df_italy.index, df_italy["y_abs"],
+             color="orange", label="number of cases")
+    plt.xticks(df_italy.index, get_xticks_v2(
+        df_italy["ds"]), rotation="vertical")
+    plt.title("Number of cases of Coronavirus in Italy")
+    # print(df_italy)
+    plt.axvline(df_italy[df_italy["ds"] == lockdown_italy].index,
+                color="red", label="lockdown date")
+    plt.legend(loc="upper left")
+
+    plt.figure(3)
+    plt.plot(df_italy_predict.index,
+             df_italy_predict["y_abs"], color="orange", label="number of cases")
+    plt.xticks(df_italy_predict.index, get_xticks_v2(
+        df_italy_predict["ds"]), rotation="vertical")
+    plt.title("Predicted number of cases of Coronavirus in Italy")
+    plt.axvline(df_italy[df_italy["ds"] == today].index,
+                color="yellow", label="today")
+    plt.axvline(df_italy[df_italy["ds"] == lockdown_italy].index,
+                color="red", label="lockdown date")
+    plt.legend(loc="upper left")
 
     country4 = "usa"
     df_usa = get_data(country4)
     df_usa_predict = get_data_predict(df_usa, delta, country4)
-    # asdasda
-    # plt.figure(1)
-    # country2 = "usa"
-    # df_usa = get_data(country2)
-    # df_usa_predict = get_data_predict(df_usa, delta, country2)
-    # plt.plot(df_usa_predict.index,
-    #          df_usa_predict["y_abs"], color="orange", label="predicted usa")
-    # plt.plot(df_poland_predict.index,
-    #          df_poland_predict["y_abs"], color="blue", label="predicted poland")
-    # plt.title("usa vs italy absolute")
+    plt.figure(4)
+    plt.plot(df_usa.index, df_usa["y_abs"],
+             color="orange", label="number of cases")
+    plt.xticks(df_usa.index, get_xticks_v2(df_usa["ds"]), rotation="vertical")
+    plt.title("Number of cases of Coronavirus in USA")
+    plt.legend(loc="upper left")
 
-    # plt.figure(2)
-    # country3 = "italy"
-    # plt.plot(df_usa.index, df_usa["y"], color="orange", label="usa")
-    # plt.plot(df_poland.index, df_poland["y"], color="blue", label="italy")
-    # plt.title("usa vs italy per million")
-    # plt.legend(loc="upper left")
-    # plt.xticks(df_usa.index, get_xticks(df_usa["ds"]), rotation="45")
+    plt.figure(5)
+    plt.plot(df_usa_predict.index,
+             df_usa_predict["y_abs"], color="orange", label="number of cases")
+    plt.xticks(df_usa_predict.index, get_xticks_v2(
+        df_usa_predict["ds"]), rotation="vertical")
+    plt.title("Predicted number of cases of Coronavirus in USA")
+    plt.axvline(df_usa_predict[df_usa_predict["ds"]
+                               == today].index, color="yellow", label="today")
+    plt.legend(loc="upper left")
+
+    df_italy_far = get_data_predict(df_italy, 14, "italy")
+    df_usa_far = get_data_predict(df_usa, 14, "usa")
+    plt.figure(7)
+    plt.plot(df_italy_far.index,
+             df_italy_far["y"], color="c", label="No of cases in Italy")
+    plt.plot(df_usa_far.index, df_usa_far["y"],
+             color="m", label="No of cases in USA")
+    plt.xticks(df_usa_far.index, get_xticks_v2(
+        df_usa_far["ds"]), rotation="vertical")
+    plt.axvline(df_usa_far[df_usa_far["ds"] == today].index,
+                color="yellow", label="today")
+    plt.legend(loc="upper left")
+    plt.title("Predicted number of COVID-19 cases in further future")
+
+    # fig, axes = plt.subplots(nrows=2, ncols=1)
+    # plt.sca(axes[0]) # real cases
+    plt.figure(8)
+    plt.title("Recorded number of COVID-19 cases")
+    plt.xticks(df_usa.index, get_xticks_v2(df_usa["ds"]), rotation="vertical")
+    plt.plot(df_usa.index, df_usa["y"], color="m", label="No of cases in USA")
+    plt.plot(df_italy.index, df_italy["y"],
+             color="c", label="No of cases in Italy")
+    plt.legend(loc="upper left")
+    # plt.sca(axes[1]) # predicted cases
+    plt.figure(9)
+    plt.title("Predicted number of COVID-19 cases")
+    plt.xticks(df_usa_predict.index, get_xticks_v2(
+        df_usa_predict["ds"]), rotation="vertical")
+    plt.plot(df_usa_predict.index,
+             df_usa_predict["y"], color="m", label="No of cases in USA")
+    plt.plot(df_italy_predict.index,
+             df_italy_predict["y"], color="c", label="No of cases in Italy")
+    plt.axvline(df_usa_predict[df_usa_predict["ds"]
+                               == today].index, color="yellow", label="today")
+    plt.legend(loc="upper left")
+
     plt.show()
